@@ -16,6 +16,15 @@ services:
     networks:
       - taskflow-net
 
+  event-logger:
+    build:
+      context: ./event-logger-service
+    container_name: taskflow-event-logger
+    depends_on:
+      - kafka
+    networks:
+      - taskflow-net
+
   postgres:
     image: postgres:16
     container_name: taskflow-postgres
@@ -27,6 +36,7 @@ services:
       - "5432:5432"
     volumes:
       - pg_data:/var/lib/postgresql/data
+      - ./task-service/migrations/init.sql:/docker-entrypoint-initdb.d/init.sql
     networks:
       - taskflow-net
 
@@ -49,7 +59,9 @@ services:
     environment:
       KAFKA_BROKER_ID: 1
       KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
-      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://localhost:9092
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092
+      KAFKA_LISTENERS: PLAINTEXT://0.0.0.0:9092
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT
       KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
     networks:
       - taskflow-net
