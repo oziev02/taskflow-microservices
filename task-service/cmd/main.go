@@ -28,7 +28,9 @@ func main() {
 
 	kafkaPublisher := kafka.NewTaskPublisher(
 		os.Getenv("KAFKA_BROKER"),
-		os.Getenv("KAFKA_TOPIC"),
+		os.Getenv("KAFKA_TOPIC_TASK_CREATED"),
+		os.Getenv("KAFKA_TOPIC_TASK_UPDATED"),
+		os.Getenv("KAFKA_TOPIC_TASK_DELETED"),
 	)
 
 	// Use-case слой

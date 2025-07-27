@@ -10,48 +10,51 @@ import (
 )
 
 type TaskPublisher struct {
-	writer *kafka.Writer
-	topic  string
+	createdWriter *kafka.Writer
+	updatedWriter *kafka.Writer
+	deletedWriter *kafka.Writer
 }
 
-func NewTaskPublisher(brokerAddr, topic string) *TaskPublisher {
+func NewTaskPublisher(broker, createdTopic, updatedTopic, deletedTopic string) *TaskPublisher {
 	return &TaskPublisher{
-		writer: &kafka.Writer{
-			Addr:     kafka.TCP(brokerAddr),
-			Topic:    topic,
-			Balancer: &kafka.LeastBytes{},
-		},
-		topic: topic,
+		createdWriter: newWriter(broker, createdTopic),
+		updatedWriter: newWriter(broker, updatedTopic),
+		deletedWriter: newWriter(broker, deletedTopic),
+	}
+}
+
+func newWriter(broker, topic string) *kafka.Writer {
+	return &kafka.Writer{
+		Addr:     kafka.TCP(broker),
+		Topic:    topic,
+		Balancer: &kafka.LeastBytes{},
 	}
 }
 
 func (p *TaskPublisher) PublishTaskCreated(t *task.Task) error {
-	return p.publish("task.created", t)
+	return p.publish(p.createdWriter, "task_created", t)
 }
 
 func (p *TaskPublisher) PublishTaskUpdated(t *task.Task) error {
-	return p.publish("task.updated", t)
+	return p.publish(p.updatedWriter, "task_updated", t)
 }
 
 func (p *TaskPublisher) PublishTaskDeleted(taskID int64) error {
-	return p.publish("task.deleted", map[string]interface{}{"id": taskID})
+	return p.publish(p.deletedWriter, "task_deleted", map[string]interface{}{"id": taskID})
 }
 
-func (p *TaskPublisher) publish(event string, payload interface{}) error {
+func (p *TaskPublisher) publish(writer *kafka.Writer, event string, payload interface{}) error {
 	data := map[string]interface{}{
 		"event":   event,
 		"payload": payload,
 	}
-
 	b, err := json.Marshal(data)
 	if err != nil {
-		return fmt.Errorf("failed to marshal message: %w", err)
+		return fmt.Errorf("marshal error: %w", err)
 	}
-
 	msg := kafka.Message{
 		Key:   []byte(event),
 		Value: b,
 	}
-
-	return p.writer.WriteMessages(context.Background(), msg)
+	return writer.WriteMessages(context.Background(), msg)
 }
