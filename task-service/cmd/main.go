@@ -12,14 +12,12 @@ import (
 	_ "github.com/lib/pq"
 
 	"github.com/oziev02/taskflow-microservices/task-service/internal/application/task"
-	taskdomain "github.com/oziev02/taskflow-microservices/task-service/internal/domain/task"
 	"github.com/oziev02/taskflow-microservices/task-service/internal/infrastructure/kafka"
 	"github.com/oziev02/taskflow-microservices/task-service/internal/infrastructure/postgres"
-	"github.com/oziev02/taskflow-microservices/task-service/internal/interfaces/http"
+	httphandler "github.com/oziev02/taskflow-microservices/task-service/internal/interfaces/http"
 )
 
 func main() {
-	// Загружаем переменные из .env
 	if err := godotenv.Load(); err != nil {
 		log.Println("No .env file found")
 	}
@@ -28,19 +26,18 @@ func main() {
 	db := connectPostgres()
 	defer db.Close()
 
-	// Инициализация Kafka publisher
 	kafkaPublisher := kafka.NewTaskPublisher(
 		os.Getenv("KAFKA_BROKER"),
 		os.Getenv("KAFKA_TOPIC"),
 	)
 
-	// Репозиторий и use-case слой
+	// Use-case слой
 	repo := postgres.NewTaskRepository(db)
 	service := task.NewService(repo, kafkaPublisher)
 
-	// HTTP маршруты
+	// HTTP
 	router := chi.NewRouter()
-	http.RegisterTaskRoutes(router, service)
+	httphandler.RegisterTaskRoutes(router, service)
 
 	port := os.Getenv("PORT")
 	log.Printf("Starting task-service on port %s...", port)

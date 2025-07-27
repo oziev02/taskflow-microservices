@@ -3,12 +3,12 @@ package task
 import "time"
 
 type Task struct {
-	ID          int64
-	Title       string
-	Description string
-	IsDone      bool
-	CreatedAt   time.Time
-	UpdatedAt   time.Time
+	ID          int64     `db:"id"`
+	Title       string    `db:"title"`
+	Description string    `db:"description"`
+	IsDone      bool      `db:"is_done"`
+	CreatedAt   time.Time `db:"created_at"`
+	UpdatedAt   time.Time `db:"updated_at"`
 }
 
 func NewTask(title, description string) *Task {
