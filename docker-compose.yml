@@ -1,6 +1,7 @@
 version: "3.9"
 
 services:
+  # --- App services ---
   task-service:
     build:
       context: ./task-service
@@ -10,7 +11,7 @@ services:
     depends_on:
       - postgres
       - kafka
-      - redis
+      - task-redis
     env_file:
       - ./task-service/.env
     networks:
@@ -25,6 +26,24 @@ services:
     networks:
       - taskflow-net
 
+  auth-service:
+    build:
+      context: ./auth-service
+    container_name: taskflow-auth-service
+    env_file:
+      - ./auth-service/.env
+    depends_on:
+      auth-postgres:
+        condition: service_healthy
+      auth-redis:
+        condition: service_healthy
+    restart: on-failure
+    ports:
+      - "8081:8081"
+    networks:
+      - taskflow-net
+
+  # --- Datastores for task-service ---
   postgres:
     image: postgres:16
     container_name: taskflow-postgres
@@ -36,10 +55,58 @@ services:
       - "5432:5432"
     volumes:
       - pg_data:/var/lib/postgresql/data
-      - ./task-service/migrations/init.sql:/docker-entrypoint-initdb.d/init.sql
+      - ./task-service/migrations/init.sql:/docker-entrypoint-initdb.d/init_tasks.sql
     networks:
       - taskflow-net
 
+  task-redis:
+    image: redis:7
+    container_name: taskflow-task-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - task_redis_data:/data
+    networks:
+      - taskflow-net
+
+  # --- Datastores for auth-service ---
+  auth-postgres:
+    image: postgres:16
+    container_name: taskflow-auth-postgres
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: my_pass
+      POSTGRES_DB: authdb
+    ports:
+      - "5433:5432"  # внешний 5433 -> внутренний 5432
+    volumes:
+      - auth_pg_data:/var/lib/postgresql/data
+      - ./auth-service/migrations/init_auth.sql:/docker-entrypoint-initdb.d/init_auth.sql
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U postgres -d authdb" ]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    networks:
+      - taskflow-net
+
+  auth-redis:
+    image: redis:7
+    container_name: taskflow-auth-redis
+    command: ["redis-server", "--appendonly", "yes"]  # AOF для надежности refresh-токенов
+    ports:
+      - "6380:6379"  # внешний 6380 -> внутренний 6379
+    volumes:
+      - auth_redis_data:/data
+    healthcheck:
+      test: [ "CMD", "redis-cli", "ping" ]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    networks:
+      - taskflow-net
+
+  # --- Kafka stack ---
   zookeeper:
     image: confluentinc/cp-zookeeper:7.5.0
     container_name: taskflow-zookeeper
@@ -66,16 +133,11 @@ services:
     networks:
       - taskflow-net
 
-  redis:
-    image: redis:7
-    container_name: taskflow-redis
-    ports:
-      - "6379:6379"
-    networks:
-      - taskflow-net
-
 volumes:
   pg_data:
+  auth_pg_data:
+  task_redis_data:
+  auth_redis_data:
 
 networks:
   taskflow-net:

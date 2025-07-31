@@ -1,0 +1,33 @@
+# Сборочные артефакты
+bin/
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+*.test
+
+# Go workspace files
+*.out
+
+# IDE (GoLand / JetBrains / VSCode)
+.idea/
+.vscode/
+*.swp
+
+# Logs
+*.log
+
+# Кеш
+__pycache__/
+*.py[cod]
+*.cache
+.cache/
+coverage.out
+
+# Модули
+vendor/
+
+# Env
+.env
+.env.*
