@@ -6,9 +6,10 @@ import (
 	"strconv"
 
 	"github.com/go-chi/chi/v5"
-	"github.com/go-chi/chi/v5/middleware"
+	middlewarechi "github.com/go-chi/chi/v5/middleware"
 
 	taskapp "github.com/oziev02/taskflow-microservices/task-service/internal/application/task"
+	middleware "github.com/oziev02/taskflow-microservices/task-service/internal/interfaces/http/middleware"
 )
 
 // оборачивает сервис для использования в HTTP
@@ -20,9 +21,11 @@ type TaskHandler struct {
 func RegisterTaskRoutes(r chi.Router, service *taskapp.Service) {
 	handler := &TaskHandler{service: service}
 
-	r.Use(middleware.Logger)
+	r.Use(middlewarechi.Logger)
 
 	r.Route("/tasks", func(r chi.Router) {
+		r.Use(middleware.JWTMiddleware) // защита токеном
+
 		r.Post("/", handler.CreateTask)
 		r.Get("/", handler.GetAllTasks)
 		r.Get("/{id}", handler.GetTaskByID)
