@@ -4,28 +4,30 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"strconv"
+	"time"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/jmoiron/sqlx"
 	"github.com/joho/godotenv"
-
 	_ "github.com/lib/pq"
 
-	"github.com/oziev02/taskflow-microservices/task-service/internal/application/task"
+	appsvc "github.com/oziev02/taskflow-microservices/task-service/internal/application/task"
+	domain "github.com/oziev02/taskflow-microservices/task-service/internal/domain/task"
 	"github.com/oziev02/taskflow-microservices/task-service/internal/infrastructure/kafka"
 	"github.com/oziev02/taskflow-microservices/task-service/internal/infrastructure/postgres"
+	redisCache "github.com/oziev02/taskflow-microservices/task-service/internal/infrastructure/redis"
 	httphandler "github.com/oziev02/taskflow-microservices/task-service/internal/interfaces/http"
 )
 
 func main() {
-	if err := godotenv.Load(); err != nil {
-		log.Println("No .env file found")
-	}
+	_ = godotenv.Load()
 
-	// Подключение к PostgreSQL
+	// Подключение к Postgres
 	db := connectPostgres()
 	defer db.Close()
 
+	// Kafka publisher
 	kafkaPublisher := kafka.NewTaskPublisher(
 		os.Getenv("KAFKA_BROKER"),
 		os.Getenv("KAFKA_TOPIC_TASK_CREATED"),
@@ -33,9 +35,17 @@ func main() {
 		os.Getenv("KAFKA_TOPIC_TASK_DELETED"),
 	)
 
-	// Use-case слой
+	// Redis cache (TTL = 60s)
+	var cache domain.Cache = nil
+	redisAddr := os.Getenv("REDIS_ADDR")
+	if redisAddr != "" {
+		redisDB := mustAtoi(os.Getenv("REDIS_DB"))
+		cache = redisCache.NewTaskCache(redisAddr, redisDB, 60*time.Second)
+	}
+
+	// Слои
 	repo := postgres.NewTaskRepository(db)
-	service := task.NewService(repo, kafkaPublisher)
+	service := appsvc.NewService(repo, kafkaPublisher, cache)
 
 	// HTTP
 	router := chi.NewRouter()
@@ -43,23 +53,20 @@ func main() {
 
 	port := os.Getenv("PORT")
 	log.Printf("Starting task-service on port %s...", port)
-	if err := http.ListenAndServe(":"+port, router); err != nil {
-		log.Fatal(err)
-	}
+	log.Fatal(http.ListenAndServe(":"+port, router))
 }
 
 func connectPostgres() *sqlx.DB {
-	dbURL := "postgres://" +
-		os.Getenv("DB_USER") + ":" +
-		os.Getenv("DB_PASSWORD") + "@" +
-		os.Getenv("DB_HOST") + ":" +
-		os.Getenv("DB_PORT") + "/" +
-		os.Getenv("DB_NAME") +
-		"?sslmode=disable"
-
-	db, err := sqlx.Connect("postgres", dbURL)
+	dsn := "postgres://" + os.Getenv("DB_USER") + ":" + os.Getenv("DB_PASSWORD") +
+		"@" + os.Getenv("DB_HOST") + ":" + os.Getenv("DB_PORT") + "/" + os.Getenv("DB_NAME") + "?sslmode=disable"
+	db, err := sqlx.Connect("postgres", dsn)
 	if err != nil {
 		log.Fatalf("failed to connect to postgres: %v", err)
 	}
 	return db
+}
+
+func mustAtoi(s string) int {
+	i, _ := strconv.Atoi(s)
+	return i
 }
