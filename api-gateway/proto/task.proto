@@ -2,15 +2,14 @@ syntax = "proto3";
 
 package taskpb;
 
-option go_package = "api-gateway/proto/taskpb";
+option go_package = "github.com/oziev02/taskflow-microservices/api-gateway/proto/taskpb;taskpb";
+
+import "google/protobuf/empty.proto";
 
 message Task {
   int64 id = 1;
   string title = 2;
   string description = 3;
-  bool is_done = 4;
-  string created_at = 5;
-  string updated_at = 6;
 }
 
 message CreateTaskRequest {
@@ -22,6 +21,23 @@ message CreateTaskResponse {
   Task task = 1;
 }
 
+message GetAllTasksResponse {
+  repeated Task tasks = 1;
+}
+
+message UpdateTaskRequest {
+  int64 id = 1;
+  string title = 2;
+  string description = 3;
+}
+
+message DeleteTaskRequest {
+  int64 id = 1;
+}
+
 service TaskService {
   rpc CreateTask(CreateTaskRequest) returns (CreateTaskResponse);
+  rpc GetAllTasks(google.protobuf.Empty) returns (GetAllTasksResponse);
+  rpc UpdateTask(UpdateTaskRequest) returns (Task);
+  rpc DeleteTask(DeleteTaskRequest) returns (google.protobuf.Empty);
 }
