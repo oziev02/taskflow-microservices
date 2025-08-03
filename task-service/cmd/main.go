@@ -1,6 +1,7 @@
 package main
 
 import (
+	"github.com/jmoiron/sqlx"
 	"log"
 	"net/http"
 	"os"
@@ -8,7 +9,6 @@ import (
 	"time"
 
 	"github.com/go-chi/chi/v5"
-	"github.com/jmoiron/sqlx"
 	"github.com/joho/godotenv"
 	_ "github.com/lib/pq"
 
@@ -56,14 +56,33 @@ func main() {
 	log.Fatal(http.ListenAndServe(":"+port, router))
 }
 
+//	func connectPostgres() *sqlx.DB {
+//		dsn := "postgres://" + os.Getenv("DB_USER") + ":" + os.Getenv("DB_PASSWORD") +
+//			"@" + os.Getenv("DB_HOST") + ":" + os.Getenv("DB_PORT") + "/" + os.Getenv("DB_NAME") + "?sslmode=disable"
+//		db, err := sqlx.Connect("postgres", dsn)
+//		if err != nil {
+//			log.Fatalf("failed to connect to postgres: %v", err)
+//		}
+//		return db
+//	}
 func connectPostgres() *sqlx.DB {
 	dsn := "postgres://" + os.Getenv("DB_USER") + ":" + os.Getenv("DB_PASSWORD") +
 		"@" + os.Getenv("DB_HOST") + ":" + os.Getenv("DB_PORT") + "/" + os.Getenv("DB_NAME") + "?sslmode=disable"
-	db, err := sqlx.Connect("postgres", dsn)
-	if err != nil {
-		log.Fatalf("failed to connect to postgres: %v", err)
+
+	var db *sqlx.DB
+	var err error
+
+	for i := 1; i <= 30; i++ {
+		db, err = sqlx.Connect("postgres", dsn)
+		if err == nil {
+			return db
+		}
+		log.Printf("postgres not ready (try %d/30): %v", i, err)
+		time.Sleep(2 * time.Second)
 	}
-	return db
+
+	log.Fatalf("failed to connect to postgres after retries: %v", err)
+	return nil
 }
 
 func mustAtoi(s string) int {
