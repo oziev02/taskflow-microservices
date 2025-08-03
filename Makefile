@@ -1,3 +1,7 @@
+# === ENV VARS ===
+PROTO_DIR=api-gateway/proto
+task_proto=$(PROTO_DIR)/task.proto
+
 # Путь до ClickHouse миграции
 CLICKHOUSE_SQL=./event-worker/migrations/init_clickhouse.sql
 
@@ -36,3 +40,21 @@ migrate-task:
 # ==== Утилиты ====
 chmod-entrypoint:
 	chmod +x ./event-worker/migrations/clickhouse-entrypoint.sh
+
+# === Proto ===
+proto:
+	protoc \
+		--go_out=. \
+		--go-grpc_out=. \
+		--go_opt=paths=source_relative \
+		--go-grpc_opt=paths=source_relative \
+		$(task_proto)
+
+# === Helpers ===
+ps:
+	docker compose ps
+
+clean:
+	docker system prune -f
+
+.PHONY: up down logs restart migrate-clickhouse proto ps clean

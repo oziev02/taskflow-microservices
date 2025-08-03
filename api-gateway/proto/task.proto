@@ -1,0 +1,27 @@
+syntax = "proto3";
+
+package taskpb;
+
+option go_package = "api-gateway/proto/taskpb";
+
+message Task {
+  int64 id = 1;
+  string title = 2;
+  string description = 3;
+  bool is_done = 4;
+  string created_at = 5;
+  string updated_at = 6;
+}
+
+message CreateTaskRequest {
+  string title = 1;
+  string description = 2;
+}
+
+message CreateTaskResponse {
+  Task task = 1;
+}
+
+service TaskService {
+  rpc CreateTask(CreateTaskRequest) returns (CreateTaskResponse);
+}
